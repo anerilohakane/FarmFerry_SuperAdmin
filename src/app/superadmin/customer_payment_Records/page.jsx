@@ -11,7 +11,8 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiClock,
-  FiUser
+  FiUser,
+  FiDollarSign as FiRupee
 } from 'react-icons/fi'
 import { FaGooglePay } from 'react-icons/fa'
 import { SiPaytm, SiRazorpay } from 'react-icons/si'
@@ -101,7 +102,7 @@ export default function PaymentRecords() {
       case 'wallet':
         return <FaGooglePay className="text-teal-500" />
       case 'netbanking':
-        return <FiDollarSign className="text-green-500" />
+        return <span className="text-green-500 font-bold text-lg">₹</span>
       case 'paytm':
         return <SiPaytm className="text-blue-400" />
       default:
@@ -133,7 +134,7 @@ export default function PaymentRecords() {
       case 'refunded':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-            <FiDollarSign className="mr-1" /> Refunded
+            <span className="mr-1 font-bold">₹</span> Refunded
           </span>
         )
       default:

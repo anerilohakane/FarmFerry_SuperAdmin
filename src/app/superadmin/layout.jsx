@@ -97,7 +97,7 @@ const AdminLayoutInner = ({ children }) => {
     },
     {
       icon: MdDeliveryDining,
-      label: "Delivery Employee Payment Records",
+      label: "Delivery Partner Payment Records",
       description: "Track delivery employee payments",
       route: "/superadmin/delivery_employee_payment",
     },
@@ -107,12 +107,6 @@ const AdminLayoutInner = ({ children }) => {
       description: "Process and review refunds",
       route: "/superadmin/refund",
     },
-    // {
-    //   icon: FiShield,
-    //   label: "Admin Security",
-    //   description: "Manage admin permissions",
-    //   route: "/superadmin/security",
-    // },
     {
       icon: FiSettings,
       label: "Settings",
@@ -657,17 +651,6 @@ const AdminLayoutInner = ({ children }) => {
                       >
                         <FiUser className="w-4 h-4 mr-3" aria-hidden="true" />
                         Profile Settings
-                      </button>
-                      <button
-                        className="w-full flex items-center px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 transition-colors"
-                        onClick={() => {
-                          router.push("/superadmin/settings?tab=security");
-                          setProfileOpen(false);
-                        }}
-                        role="menuitem"
-                      >
-                        <FiShield className="w-4 h-4 mr-3" aria-hidden="true" />
-                        Security
                       </button>
                       <hr className="my-2 border-gray-200" />
                       <button
