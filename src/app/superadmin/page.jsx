@@ -1,11 +1,10 @@
 'use client'
 
 import { 
-  FiDollarSign, 
+  FiTrendingUp, 
   FiShoppingCart, 
   FiUsers, 
   FiPackage,
-  FiTrendingUp,
   FiActivity,
   FiCalendar,
   FiCreditCard,
@@ -27,7 +26,7 @@ export default function DashboardPage() {
   // Dashboard metrics
   const stats = [
     { 
-      icon: FiDollarSign, 
+      icon: FiTrendingUp, 
       title: "Today's Revenue", 
       value: "₹1,24,567", 
       change: "+12%", 

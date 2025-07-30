@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { 
-  FiDollarSign, 
   FiFilter, 
   FiDownload, 
   FiSearch,
@@ -18,7 +17,7 @@ import {
   FiFileText,
   FiRefreshCw
 } from 'react-icons/fi'
-import { FaGooglePay } from 'react-icons/fa'
+import { FaGooglePay, FaRupeeSign } from 'react-icons/fa'
 import { SiPaytm, SiRazorpay } from 'react-icons/si'
 
 export default function SupplierPayments() {
@@ -122,7 +121,7 @@ export default function SupplierPayments() {
     { value: 'upi', label: 'UPI Payment', icon: <SiRazorpay className="text-indigo-600" /> },
     { value: 'cheque', label: 'Cheque', icon: <FiFileText className="text-green-500" /> },
     { value: 'card', label: 'Credit Card', icon: <FiCreditCard className="text-blue-500" /> },
-    { value: 'cash', label: 'Cash', icon: <FiDollarSign className="text-green-500" /> }
+    { value: 'cash', label: 'Cash', icon: <FaRupeeSign className="text-green-500" /> }
   ]
 
   // Enhanced status options
@@ -152,7 +151,7 @@ export default function SupplierPayments() {
       pending: <FiClock className="mr-1" />,
       failed: <FiXCircle className="mr-1" />,
       cancelled: <FiXCircle className="mr-1" />,
-      partially_paid: <FiDollarSign className="mr-1" />
+      partially_paid: <FaRupeeSign className="mr-1" />
     }
 
     return (
@@ -270,7 +269,7 @@ export default function SupplierPayments() {
                 stat.change.startsWith('+') ? 'bg-green-100 text-green-600' : 
                 stat.change.startsWith('-') ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
               }`}>
-                <FiDollarSign className="text-xl" />
+                <FaRupeeSign className="text-xl" />
               </div>
             </div>
           </div>
@@ -383,7 +382,7 @@ export default function SupplierPayments() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center">
-                        {paymentMethods.find(m => m.value === payment.method)?.icon || <FiDollarSign className="text-gray-500" />}
+                        {paymentMethods.find(m => m.value === payment.method)?.icon || <FaRupeeSign className="text-gray-500" />}
                         <span className="ml-2">
                           {paymentMethods.find(m => m.value === payment.method)?.label || payment.method}
                         </span>
