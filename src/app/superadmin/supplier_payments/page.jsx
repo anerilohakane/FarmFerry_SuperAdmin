@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FiDollarSign,
   FiFilter,
@@ -23,6 +23,19 @@ import {
 import { FaGooglePay, FaRupeeSign, FaExchangeAlt } from "react-icons/fa";
 import { SiPaytm, SiRazorpay } from "react-icons/si";
 
+// API Configuration
+const API_BASE_URL = 'http://localhost:9000/api/v1';
+
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  console.log('Token found:', !!token); // Debug log
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  };
+};
+
 export default function SupplierPayments() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -38,70 +51,104 @@ export default function SupplierPayments() {
   const [payProcessing, setPayProcessing] = useState(false);
   const [paidPaymentId, setPaidPaymentId] = useState(null);
 
-  // Sample supplier payments data
-  const [supplierPayments] = useState([
-    {
-      id: "SP-1001",
-      supplier: { name: "Fresh Farm Produce", id: "SUP-001", contact: "9876543210" },
-      amount: 12500,
-      date: "2023-06-15",
-      dueDate: "2023-06-20",
-      status: "completed",
-      method: "bank_transfer",
-      invoice: { number: "INV-789456", date: "2023-06-10" },
-      deliveryCount: 24,
-      notes: "Monthly produce delivery",
-    },
-    {
-      id: "SP-1002",
-      supplier: { name: "Organic Dairy Co.", id: "SUP-002", contact: "9876543211" },
-      amount: 8500,
-      date: "2023-06-14",
-      dueDate: "2023-06-18",
-      status: "pending",
-      method: "upi",
-      invoice: { number: "INV-321654", date: "2023-06-09" },
-      deliveryCount: 18,
-      notes: "Bi-weekly milk supply",
-    },
-    {
-      id: "SP-1003",
-      supplier: { name: "Grain Distributors", id: "SUP-003", contact: "9876543212" },
-      amount: 18420,
-      date: "2023-06-12",
-      dueDate: "2023-06-15",
-      status: "completed",
-      method: "cheque",
-      invoice: { number: "INV-654987", date: "2023-06-07" },
-      deliveryCount: 32,
-      notes: "Wheat and rice delivery",
-    },
-    {
-      id: "SP-1004",
-      supplier: { name: "Premium Spices", id: "SUP-004", contact: "9876543213" },
-      amount: 9560,
-      date: "2023-06-10",
-      dueDate: "2023-06-12",
-      status: "failed",
-      method: "bank_transfer",
-      invoice: { number: "INV-987321", date: "2023-06-05" },
-      deliveryCount: 15,
-      notes: "Spices monthly order",
-      failureReason: "Insufficient funds",
-    },
-    {
-      id: "SP-1005",
-      supplier: { name: "Cold Storage Logistics", id: "SUP-005", contact: "9876543214" },
-      amount: 11200,
-      date: "2023-06-08",
-      dueDate: "2023-06-10",
-      status: "completed",
-      method: "upi",
-      invoice: { number: "INV-147258", date: "2023-06-03" },
-      deliveryCount: 28,
-      notes: "Refrigerated transport",
-    },
-  ]);
+  // Dynamic supplier data states
+  const [suppliers, setSuppliers] = useState([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [suppliersError, setSuppliersError] = useState(null);
+
+  // Sample supplier payments data with dynamic supplier integration
+  const [supplierPayments, setSupplierPayments] = useState([]);
+
+  // Fetch suppliers from API
+  const fetchSuppliers = async () => {
+    try {
+      setSuppliersLoading(true);
+      setSuppliersError(null);
+
+      console.log('Fetching suppliers from:', `${API_BASE_URL}/supplier-payments/business-names`);
+
+      const response = await fetch(`${API_BASE_URL}/supplier-payments/business-names`, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('API Response data:', data);
+
+      if (data.success && data.data) {
+        console.log('Suppliers fetched:', data.data.length);
+        setSuppliers(data.data);
+        // Generate sample payments with real supplier data
+        generateSamplePayments(data.data);
+      } else {
+        throw new Error(data.message || 'Failed to fetch suppliers');
+      }
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+      setSuppliersError(error.message);
+      // Fallback to sample data if API fails
+      generateSamplePayments([]);
+    } finally {
+      setSuppliersLoading(false);
+    }
+  };
+
+  // Generate sample payment data using real suppliers
+  const generateSamplePayments = (realSuppliers) => {
+    const samplePayments = [];
+    const paymentMethods = ["bank_transfer", "upi", "cheque", "card", "cash"];
+    const statuses = ["completed", "pending", "failed", "cancelled", "partially_paid"];
+
+    // If we have real suppliers, use them; otherwise use fallback data
+    const suppliersToUse = realSuppliers.length > 0 ? realSuppliers : [
+      { _id: "SUP-001", businessName: "Fresh Farm Produce" },
+      { _id: "SUP-002", businessName: "Organic Dairy Co." },
+      { _id: "SUP-003", businessName: "Grain Distributors" },
+      { _id: "SUP-004", businessName: "Premium Spices" },
+      { _id: "SUP-005", businessName: "Cold Storage Logistics" },
+    ];
+
+    suppliersToUse.forEach((supplier, index) => {
+      const payment = {
+        id: `SP-${1001 + index}`,
+        supplier: { 
+          name: supplier.businessName,
+          id: supplier._id,
+          contact: `987654321${index}` // Generate sample contact
+        },
+        amount: Math.floor(Math.random() * 20000) + 5000, // Random amount between 5000-25000
+        date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Random date in last 30 days
+        dueDate: new Date(Date.now() + Math.random() * 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Random due date in next 10 days
+        status: statuses[Math.floor(Math.random() * statuses.length)],
+        method: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
+        invoice: { 
+          number: `INV-${789456 + index}`, 
+          date: new Date(Date.now() - Math.random() * 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        },
+        deliveryCount: Math.floor(Math.random() * 30) + 10,
+        notes: `Payment for ${supplier.businessName}`,
+        ...(Math.random() > 0.8 && { failureReason: "Insufficient funds" }) // 20% chance of failure reason
+      };
+      samplePayments.push(payment);
+    });
+
+    setSupplierPayments(samplePayments);
+  };
+
+  // Fetch suppliers on component mount
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
 
   // Filtering supplier payments
   const filteredPayments = supplierPayments.filter((payment) => {
@@ -166,6 +213,15 @@ export default function SupplierPayments() {
 
   // Stats summary calculation
   const calculateStats = () => {
+    if (supplierPayments.length === 0) {
+      return [
+        { title: "Total Payments", value: <><FaRupeeSign className="inline mb-1" /> 0</>, change: "0%", description: "0 transactions" },
+        { title: "Completed", value: <><FaRupeeSign className="inline mb-1" /> 0</>, change: "0%", description: "0% of total" },
+        { title: "Pending", value: <><FaRupeeSign className="inline mb-1" /> 0</>, change: "0%", description: "0% of total" },
+        { title: "Failed", value: <><FaRupeeSign className="inline mb-1" /> 0</>, change: "0%", description: "0% of total" },
+      ];
+    }
+
     const total = supplierPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const completed = supplierPayments.filter((p) => p.status === "completed").reduce((sum, payment) => sum + payment.amount, 0);
     const pending = supplierPayments.filter((p) => p.status === "pending").reduce((sum, payment) => sum + payment.amount, 0);
@@ -181,9 +237,10 @@ export default function SupplierPayments() {
 
   const stats = calculateStats();
 
-  // Loading simulation
+  // Loading simulation and refresh data
   const refreshData = () => {
     setIsLoading(true);
+    fetchSuppliers();
     setTimeout(() => {
       setIsLoading(false);
     }, 1000);
@@ -225,13 +282,53 @@ export default function SupplierPayments() {
     }, 1500);
   };
 
+  // Show loading state while suppliers are being fetched
+  if (suppliersLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+          <span className="ml-3 text-gray-600">Loading supplier data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if suppliers failed to load
+  if (suppliersError && suppliers.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <FiXCircle className="text-red-500 mr-2" />
+            <span className="text-red-700">Error loading supplier data: {suppliersError}</span>
+          </div>
+          <button
+            onClick={fetchSuppliers}
+            className="mt-3 inline-flex items-center px-3 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100"
+          >
+            <FiRefreshCw className="mr-2" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Supplier Payments</h1>
-          <p className="text-gray-500">Manage and track all supplier payments and settlements</p>
+          <p className="text-gray-500">
+            Manage and track all supplier payments and settlements
+            {suppliers.length > 0 && (
+              <span className="ml-2 text-sm text-green-600">
+                ({suppliers.length} suppliers loaded)
+              </span>
+            )}
+          </p>
         </div>
         <div className="mt-4 md:mt-0 flex space-x-3">
           <button
@@ -253,7 +350,7 @@ export default function SupplierPayments() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-gray-800">
         {stats.map((stat, i) => (
           <div
             key={i}
@@ -262,7 +359,7 @@ export default function SupplierPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{stat.title}</p>
-                <p className="text-2xl font-bold mt-1">{isLoading ? "..." : stat.value}</p>
+                <p className="text-2xl font-bold mt-1">{isLoading || suppliersLoading ? "..." : stat.value}</p>
                 <div className="flex items-center mt-1">
                   <span
                     className={`text-sm ${
@@ -295,7 +392,7 @@ export default function SupplierPayments() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+      <div className="bg-white p-4 rounded-lg shadow border border-gray-200 text-black">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2">
             <label htmlFor="search" className="sr-only">
@@ -436,7 +533,6 @@ export default function SupplierPayments() {
                          className="text-blue-600 hover:text-blue-900 inline-flex items-center"
                           aria-label={`Pay payment ${payment.id}`}
                         >
-                          {/* <FaRupeeSign className="mr-1" size={18} /> */}
                           Pay
                         </button>
                       )}
@@ -446,7 +542,7 @@ export default function SupplierPayments() {
               ) : (
                 <tr>
                   <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                    No payments found matching your criteria
+                    {suppliersLoading ? "Loading payments..." : "No payments found matching your criteria"}
                   </td>
                 </tr>
               )}
