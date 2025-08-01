@@ -6,37 +6,46 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Real login function for superadmin
   const login = async (email, password) => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/superadmin/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-      credentials: 'include',
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.message || 'Login failed');
+    setLoading(true);
+    try {
+      const res = await fetch(`http://localhost:9000/api/v1/superadmin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+      
+      // Store user info in localStorage and state
+      const userData = data.data?.superadmin || null;
+      const accessToken = data.data?.accessToken || null;
+      
+      setUser(userData);
+      setToken(accessToken);
+      setIsAuthenticated(true);
+      
+      // Store in localStorage
+      if (userData) localStorage.setItem('superadmin_user', JSON.stringify(userData));
+      if (accessToken) localStorage.setItem('superadmin_token', accessToken);
+      
+      return data;
+    } finally {
+      setLoading(false);
     }
-    
-    // Store user info in localStorage and state
-    const userData = data.data?.superadmin || null;
-    const accessToken = data.data?.accessToken || null;
-    
-    setUser(userData);
-    setToken(accessToken);
-    
-    // Store in localStorage
-    if (userData) localStorage.setItem('superadmin_user', JSON.stringify(userData));
-    if (accessToken) localStorage.setItem('superadmin_token', accessToken);
-    
-    return data;
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
+    setIsAuthenticated(false);
     
     // Clear localStorage
     localStorage.removeItem('superadmin_user');
@@ -44,7 +53,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('adminSidebarActive');
     
     // Optionally call backend logout
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/superadmin/logout`, {
+    fetch(`http://localhost:9000/api/v1/superadmin/logout`, {
       method: 'POST',
       credentials: 'include'
     }).catch(err => {
@@ -53,7 +62,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );
