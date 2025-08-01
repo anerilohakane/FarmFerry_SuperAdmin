@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/superadmin/login`, {
+      const res = await fetch(`http://localhost:9000/api/v1/superadmin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -53,7 +53,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('adminSidebarActive');
     
     // Optionally call backend logout
-    fetch(`/api/v1/superadmin/logout`, {
+    fetch(`http://localhost:9000/api/v1/superadmin/logout`, {
       method: 'POST',
       credentials: 'include'
     }).catch(err => {
