@@ -1,6 +1,6 @@
 // superadminApi.js
 
-const API_BASE = 'http://localhost:9000/api/v1/superadmin';
+const API_BASE = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1/superadmin`;
 
 export async function getProfile() {
   const res = await fetch(`${API_BASE}/profile`, {

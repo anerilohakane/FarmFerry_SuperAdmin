@@ -233,7 +233,7 @@ const SettingsPage = () => {
                       <div className="flex items-center gap-6">
                         <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center overflow-hidden">
                           {profileData.avatar ? (
-                            <img src={`http://localhost:9000${profileData.avatar}`} alt="Avatar" className="w-full h-full object-cover" />
+                                                         <img src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}${profileData.avatar}`} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
                             <User className="w-12 h-12 text-white" />
                           )}
