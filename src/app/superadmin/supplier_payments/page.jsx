@@ -24,7 +24,7 @@ import { FaGooglePay, FaRupeeSign, FaExchangeAlt } from "react-icons/fa";
 import { SiPaytm, SiRazorpay } from "react-icons/si";
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:9000/api/v1';
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1`;
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {
