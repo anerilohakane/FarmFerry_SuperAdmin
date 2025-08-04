@@ -1179,7 +1179,7 @@ export default function RefundPayments() {
                           {refund.dateRequested}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(refund.status)}
+                          {getStatusBadge(refund.refundStatus)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex space-x-2 justify-end">
                           <button
@@ -1189,7 +1189,7 @@ export default function RefundPayments() {
                           >
                             <FiEye className="mr-1" />
                           </button>
-                          {(refund.status === 'pending' || refund.status === 'failed') && (
+                          {(refund.refundStatus === 'pending' || refund.refundStatus === 'failed') && (
                             <button
                               className="text-blue-600 hover:text-blue-900 inline-flex items-center"
                               aria-label="Pay this refund"
@@ -1198,7 +1198,7 @@ export default function RefundPayments() {
                               {/* <FaRupeeSign className="mr-1" /> */}
                               pay
                             </button>
-                          )}
+                          )}                          
                         </td>
                       </tr>
                     ))
