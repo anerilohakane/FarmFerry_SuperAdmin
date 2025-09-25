@@ -1,127 +1,89 @@
-'use client'
+"use client"
 
+import { useEffect, useState } from 'react'
 import { 
   FiTrendingUp, 
   FiShoppingCart, 
   FiUsers, 
   FiPackage,
-  FiActivity,
-  FiCalendar,
-  FiCreditCard,
-  FiTruck,
   FiAlertCircle
 } from 'react-icons/fi'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
-const revenueData = [
-  { name: 'Jan', revenue: 4000 },
-  { name: 'Feb', revenue: 3000 },
-  { name: 'Mar', revenue: 5000 },
-  { name: 'Apr', revenue: 2780 },
-  { name: 'May', revenue: 1890 },
-  { name: 'Jun', revenue: 2390 },
-]
-
 export default function DashboardPage() {
-  // Dashboard metrics
-  const stats = [
-    { 
-      icon: FiTrendingUp, 
-      title: "Today's Revenue", 
-      value: "₹1,24,567", 
-      change: "+12%", 
-      trend: 'up',
-      description: "Compared to yesterday"
-    },
-    { 
-      icon: FiShoppingCart, 
-      title: "Total Orders", 
-      value: "1,234", 
-      change: "+8%", 
-      trend: 'up',
-      description: "24 new today"
-    },
-    { 
-      icon: FiUsers, 
-      title: "Active Users", 
-      value: "8,456", 
-      change: "+5%", 
-      trend: 'up',
-      description: "385 active now"
-    },
-    { 
-      icon: FiPackage, 
-      title: "Products", 
-      value: "2,567", 
-      change: "+3%", 
-      trend: 'up',
-      description: "45 low stock"
-    }
-  ]
+  const [stats, setStats] = useState([
+    { icon: FiTrendingUp, title: "Today's Revenue", value: "₹0", change: "", trend: 'up', description: "Total paid (customers)" },
+    { icon: FiShoppingCart, title: "Total Payments", value: "0", change: "", trend: 'up', description: "Customer payments" },
+    { icon: FiUsers, title: "Payouts Processed", value: "0", change: "", trend: 'up', description: "Delivery payouts" },
+    { icon: FiPackage, title: "Products", value: "-", change: "", trend: 'up', description: "Active products" }
+  ])
+  const [revenueData, setRevenueData] = useState([])
+  const [alerts, setAlerts] = useState([])
+  const [recentPayments, setRecentPayments] = useState([])
+  const [deliverySummary, setDeliverySummary] = useState({ processed: 0, pending: 0, rejected: 0 })
 
-  // Recent orders
-  const recentOrders = [
-    { 
-      id: "#ORD-1001", 
-      customer: "John Doe", 
-      amount: "₹1,250", 
-      status: "delivered", 
-      date: "2023-06-15",
-      items: 5
-    },
-    { 
-      id: "#ORD-1002", 
-      customer: "Jane Smith", 
-      amount: "₹850", 
-      status: "processing", 
-      date: "2023-06-15",
-      items: 3
-    },
-    { 
-      id: "#ORD-1003", 
-      customer: "Robert Johnson", 
-      amount: "₹420", 
-      status: "cancelled", 
-      date: "2023-06-14",
-      items: 2
-    },
-    { 
-      id: "#ORD-1004", 
-      customer: "Emily Davis", 
-      amount: "₹1,560", 
-      status: "delivered", 
-      date: "2023-06-14",
-      items: 7
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1`
+  const headers = () => {
+    const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token')
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
     }
-  ]
+  }
 
-  // System alerts
-  const alerts = [
-    {
-      type: "payment",
-      title: "3 Failed Transactions",
-      description: "Require manual review",
-      priority: "high"
-    },
-    {
-      type: "inventory",
-      title: "Low Stock Items",
-      description: "15 products below threshold",
-      priority: "medium"
-    },
-    {
-      type: "vendor",
-      title: "New Vendor Applications",
-      description: "2 pending approvals",
-      priority: "low"
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const [custStatsRes, daStatsRes, custPaymentsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/payments/statistics`, { headers: headers() }).catch(() => null),
+          fetch(`${API_BASE_URL}/delivery-payments/statistics`, { headers: headers() }).catch(() => null),
+          fetch(`${API_BASE_URL}/payments?limit=10&sortBy=createdAt&sortOrder=desc`, { headers: headers() }).catch(() => null)
+        ])
+
+        const custStats = custStatsRes && custStatsRes.ok ? await custStatsRes.json() : null
+        const daStats = daStatsRes && daStatsRes.ok ? await daStatsRes.json() : null
+        const custPayments = custPaymentsRes && custPaymentsRes.ok ? await custPaymentsRes.json() : null
+
+        const paidTotal = custStats?.data?.paidTotalAmount || custStats?.data?.paid?.totalAmount || 0
+        const totalPayments = custStats?.data?.totalRecords || custStats?.data?.count || 0
+        const processedCount = daStats?.data?.paymentStatus?.processed?.count || 0
+
+        setStats(prev => [
+          { ...prev[0], value: `₹${Number(paidTotal).toLocaleString()}` },
+          { ...prev[1], value: `${totalPayments}` },
+          { ...prev[2], value: `${processedCount}` },
+          prev[3]
+        ])
+
+        const chart = custStats?.data?.lastSixDays || []
+        setRevenueData(chart.map(d => ({ name: d.date || d.label || '', revenue: d.amount || d.total || 0 })))
+
+        const failedPayments = custStats?.data?.failed?.count || 0
+        const rejectedPayouts = daStats?.data?.paymentStatus?.rejected?.count || 0
+        const pendingPayouts = daStats?.data?.paymentStatus?.pending?.count || 0
+        const newAlerts = []
+        if (failedPayments > 0) newAlerts.push({ type: 'payment', title: `${failedPayments} Failed Transactions`, description: 'Require manual review', priority: 'high' })
+        if (pendingPayouts > 0) newAlerts.push({ type: 'payout', title: `${pendingPayouts} Pending Payouts`, description: 'Delivery associates waiting for approval', priority: 'medium' })
+        if (rejectedPayouts > 0) newAlerts.push({ type: 'payout', title: `${rejectedPayouts} Rejected Payouts`, description: 'Review and retry if needed', priority: 'low' })
+        setAlerts(newAlerts)
+
+        const records = Array.isArray(custPayments?.data?.records) ? custPayments.data.records : []
+        setRecentPayments(records.slice(0, 4))
+
+        setDeliverySummary({
+          processed: daStats?.data?.paymentStatus?.processed?.count || 0,
+          pending: daStats?.data?.paymentStatus?.pending?.count || 0,
+          rejected: daStats?.data?.paymentStatus?.rejected?.count || 0
+        })
+      } catch {}
     }
-  ]
+    run()
+  }, [])
 
-  // Delivery performance
   const deliveryStats = [
-    { name: 'On Time', value: 87, color: 'bg-green-500' },
-    { name: 'Delayed', value: 9, color: 'bg-yellow-500' },
-    { name: 'Failed', value: 4, color: 'bg-red-500' }
+    { name: 'Processed', value: deliverySummary.processed, color: 'bg-green-500' },
+    { name: 'Pending', value: deliverySummary.pending, color: 'bg-yellow-500' },
+    { name: 'Rejected', value: deliverySummary.rejected, color: 'bg-red-500' }
   ]
 
   return (
@@ -232,41 +194,41 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Orders */}
+      {/* Recent Payments */}
       <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Recent Orders</h2>
-          <button className="text-sm text-green-600 hover:underline">View All Orders</button>
+          <h2 className="text-lg font-semibold">Recent Customer Payments</h2>
+          <button className="text-sm text-green-600 hover:underline">View All</button>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {recentOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.customer}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.amount}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.items}</td>
+              {recentPayments.map((p, idx) => (
+                <tr key={p.id || p.paymentId || idx} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{p.id || p.paymentId}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.customer?.name || p.customerName || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{(p.amount || p.totalAmount || 0).toLocaleString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.method || p.paymentMethod || ''}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs rounded-full ${
-                      order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                      order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                      (p.status || p.paymentStatus) === 'paid' ? 'bg-green-100 text-green-800' :
+                      (p.status || p.paymentStatus) === 'pending' ? 'bg-blue-100 text-blue-800' :
                       'bg-red-100 text-red-800'
                     }`}>
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                      {(p.status || p.paymentStatus || '').toString()}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.createdAt || ''}</td>
                 </tr>
               ))}
             </tbody>

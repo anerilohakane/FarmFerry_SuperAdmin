@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   FiDollarSign, 
   FiFilter, 
@@ -21,74 +21,80 @@ export default function PaymentRecords() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all')
+  const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  // Payment records data
-  const paymentRecords = [
-    {
-      id: 'PYM-1001',
-      customer: 'Rahul Sharma',
-      orderId: 'ORD-2056',
-      amount: 1250,
-      date: '2023-06-15 10:30',
-      status: 'completed',
-      method: 'card',
-      transactionId: 'txn_789456123'
-    },
-    {
-      id: 'PYM-1002',
-      customer: 'Priya Patel',
-      orderId: 'ORD-2057',
-      amount: 850,
-      date: '2023-06-15 11:45',
-      status: 'failed',
-      method: 'upi',
-      transactionId: 'txn_321654987'
-    },
-    {
-      id: 'PYM-1003',
-      customer: 'Amit Singh',
-      orderId: 'ORD-2058',
-      amount: 420,
-      date: '2023-06-14 09:15',
-      status: 'pending',
-      method: 'wallet',
-      transactionId: 'txn_654987321'
-    },
-    {
-      id: 'PYM-1004',
-      customer: 'Neha Gupta',
-      orderId: 'ORD-2059',
-      amount: 1560,
-      date: '2023-06-14 14:20',
-      status: 'completed',
-      method: 'netbanking',
-      transactionId: 'txn_987321654'
-    },
-    {
-      id: 'PYM-1005',
-      customer: 'Vikram Joshi',
-      orderId: 'ORD-2060',
-      amount: 920,
-      date: '2023-06-13 16:50',
-      status: 'refunded',
-      method: 'upi',
-      transactionId: 'txn_147258369'
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1`
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token')
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
     }
-  ]
+  }
 
-  // Filter payment records
-  const filteredRecords = paymentRecords.filter(record => {
-    const matchesSearch = 
-      record.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.orderId.toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesStatus = 
-      statusFilter === 'all' || record.status === statusFilter
-    
-    const matchesMethod = 
-      paymentMethodFilter === 'all' || record.method === paymentMethodFilter
-    
+  const fetchPaymentRecords = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const params = new URLSearchParams()
+      if (searchQuery.trim()) params.append('search', searchQuery.trim())
+      if (statusFilter !== 'all') params.append('status', statusFilter)
+      if (paymentMethodFilter !== 'all') params.append('method', paymentMethodFilter)
+      const res = await fetch(`${API_BASE_URL}/payments?${params.toString()}`, { headers: getAuthHeaders() })
+      if (!res.ok) throw new Error('Failed to fetch payment records')
+      const data = await res.json()
+      const list = Array.isArray(data?.data?.records)
+        ? data.data.records
+        : Array.isArray(data?.records)
+          ? data.records
+          : Array.isArray(data)
+            ? data
+            : []
+      setRecords(list)
+    } catch (e) {
+      setError(e.message || 'Failed to load payment records')
+      setRecords([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPaymentRecords()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => fetchPaymentRecords(), 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, statusFilter, paymentMethodFilter])
+
+  const getDisplayId = (r) => r.paymentId || r.id || r.transactionId || ''
+  const getDisplayCustomer = (r) => {
+    if (r.customer && typeof r.customer === 'object') {
+      if (r.customer.name && r.customer.name.trim()) return r.customer.name
+      const full = `${r.customer.firstName || ''} ${r.customer.lastName || ''}`.trim()
+      if (full) return full
+    }
+    return r.customerName || r.customer || 'Customer'
+  }
+  const getDisplayAmount = (r) => r.amount || r.totalAmount || 0
+  const getDisplayMethod = (r) => r.method || r.paymentMethod || (r.payment && r.payment.method) || 'Unknown'
+  const getDisplayDate = (r) => r.date || r.createdAt || ''
+  const getDisplayStatus = (r) => r.status || r.paymentStatus || 'unknown'
+
+  const filteredRecords = records.filter((r) => {
+    const id = getDisplayId(r).toString().toLowerCase()
+    const name = getDisplayCustomer(r).toString().toLowerCase()
+    const matchesSearch =
+      id.includes(searchQuery.toLowerCase()) ||
+      name.includes(searchQuery.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || getDisplayStatus(r) === statusFilter
+    const matchesMethod = paymentMethodFilter === 'all' || getDisplayMethod(r) === paymentMethodFilter
     return matchesSearch && matchesStatus && matchesMethod
   })
 
@@ -238,31 +244,41 @@ export default function PaymentRecords() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredRecords.map((record) => (
-                <tr key={record.id} className="hover:bg-gray-50">
+              {loading && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">Loading...</td>
+                </tr>
+              )}
+              {!loading && error && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-red-500">{error}</td>
+                </tr>
+              )}
+              {!loading && !error && filteredRecords.map((record, idx) => (
+                <tr key={getDisplayId(record) || idx} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {record.id}
+                    {getDisplayId(record)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex items-center">
                       <FiUser className="flex-shrink-0 mr-2 text-gray-400" />
-                      {record.customer}
+                      {getDisplayCustomer(record)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ₹{record.amount}
+                    ₹{getDisplayAmount(record).toLocaleString('en-IN')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex items-center">
-                      {getPaymentMethodIcon(record.method)}
-                      <span className="ml-2 capitalize">{record.method}</span>
+                      {getPaymentMethodIcon(getDisplayMethod(record))}
+                      <span className="ml-2">{getDisplayMethod(record)}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {record.date}
+                    {getDisplayDate(record)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(record.status)}
+                    {getStatusBadge(getDisplayStatus(record))}
                   </td>
                 </tr>
               ))}
