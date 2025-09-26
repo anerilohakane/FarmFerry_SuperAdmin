@@ -764,12 +764,13 @@ export default function DeliveryPartnerPayments() {
   })
 
   // API Configuration
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api/v1'
-  //const getAuthToken = () => localStorage.getItem('accessToken')
-  
-  const apiHeaders = {
-    'Content-Type': 'application/json',
-    //'Authorization': `Bearer ${getAuthToken()}`
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1`
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token')
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
   }
 
   // Payment method options with rupee icons
@@ -816,7 +817,7 @@ export default function DeliveryPartnerPayments() {
       }
 
       const response = await fetch(`${API_BASE_URL}/delivery-payments?${queryParams}`, {
-        headers: apiHeaders
+        headers: getAuthHeaders()
       })
       
       if (!response.ok) {
@@ -844,7 +845,7 @@ export default function DeliveryPartnerPayments() {
   const fetchStatistics = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/delivery-payments/statistics`, {
-        headers: apiHeaders
+        headers: getAuthHeaders()
       })
       
       if (!response.ok) {
@@ -866,7 +867,7 @@ export default function DeliveryPartnerPayments() {
     try {
       const response = await fetch(`${API_BASE_URL}/delivery-payments/${partnerId}/${paymentId}`, {
         method: 'PATCH',
-        headers: apiHeaders,
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status, adminNote })
       })
       

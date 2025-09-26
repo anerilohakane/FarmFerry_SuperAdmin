@@ -28,8 +28,7 @@ const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhos
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  console.log('Token found:', !!token); // Debug log
+  const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
   return {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` })
@@ -45,6 +44,7 @@ export default function SupplierPayments() {
 
   // States to control modals and selected payment
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [supplierDetail, setSupplierDetail] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [payMethod, setPayMethod] = useState("bank_transfer");
@@ -68,9 +68,7 @@ export default function SupplierPayments() {
       console.log('Fetching suppliers from:', `${API_BASE_URL}/supplier-payments/business-names`);
 
       const response = await fetch(`${API_BASE_URL}/supplier-payments/business-names`, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
       });
 
       console.log('Response status:', response.status);
@@ -101,6 +99,18 @@ export default function SupplierPayments() {
     } finally {
       setSuppliersLoading(false);
     }
+  };
+
+  const fetchSupplierDetail = async (id) => {
+    try {
+      setSupplierDetail(null);
+      const response = await fetch(`${API_BASE_URL}/supplier-payments/business-names/${id}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setSupplierDetail(data?.data || data);
+    } catch {}
   };
 
   // Generate sample payment data using real suppliers
@@ -247,9 +257,12 @@ export default function SupplierPayments() {
   };
 
   // Open payment details modal
-  const openPaymentDetails = (payment) => {
+  const openPaymentDetails = async (payment) => {
     setSelectedPayment(payment);
     setShowPaymentDetails(true);
+    if (payment?.supplier?.id) {
+      await fetchSupplierDetail(payment.supplier.id);
+    }
   };
 
   // Close payment details modal
@@ -590,6 +603,13 @@ export default function SupplierPayments() {
               <div>
                 <strong>Invoice Date:</strong> {selectedPayment.invoice.date}
               </div>
+              {supplierDetail && (
+                <div className="mt-3 p-3 rounded bg-gray-50 border">
+                  <div className="font-medium mb-1">Supplier Details</div>
+                  <div><strong>Business Name:</strong> {supplierDetail.businessName || supplierDetail.name}</div>
+                  {supplierDetail.email && <div><strong>Email:</strong> {supplierDetail.email}</div>}
+                </div>
+              )}
               <div>
                 <strong>Status:</strong> {getStatusBadge(selectedPayment.status)}
               </div>
