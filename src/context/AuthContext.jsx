@@ -16,8 +16,7 @@ export function AuthProvider({ children }) {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1/superadmin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include',
+        body: JSON.stringify({ email, password })
       });
       const data = await res.json();
       if (!res.ok) {
