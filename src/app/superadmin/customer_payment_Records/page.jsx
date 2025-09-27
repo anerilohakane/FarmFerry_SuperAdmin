@@ -128,9 +128,10 @@ export default function PaymentRecords() {
   const getStatusBadge = (status) => {
     switch(status) {
       case 'completed':
+      case 'paid': // Handle both 'completed' and 'paid' status
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            <FiCheckCircle className="mr-1" /> Completed
+            <FiCheckCircle className="mr-1" /> {status === 'paid' ? 'Paid' : 'Completed'}
           </span>
         )
       case 'failed':
@@ -154,7 +155,7 @@ export default function PaymentRecords() {
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            Unknown
+            {status || 'Unknown'}
           </span>
         )
     }
@@ -201,6 +202,7 @@ export default function PaymentRecords() {
             >
               <option value="all">All Statuses</option>
               <option value="completed">Completed</option>
+              <option value="paid">Paid</option>
               <option value="pending">Pending</option>
               <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
