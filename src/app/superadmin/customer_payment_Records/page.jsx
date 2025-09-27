@@ -24,6 +24,12 @@ export default function PaymentRecords() {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
+  const [recordsPerPage, setRecordsPerPage] = useState(10)
 
   const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1`
 
@@ -35,7 +41,7 @@ export default function PaymentRecords() {
     }
   }
 
-  const fetchPaymentRecords = async () => {
+  const fetchPaymentRecords = async (page = currentPage) => {
     try {
       setLoading(true)
       setError('')
@@ -43,9 +49,15 @@ export default function PaymentRecords() {
       if (searchQuery.trim()) params.append('search', searchQuery.trim())
       if (statusFilter !== 'all') params.append('status', statusFilter)
       if (paymentMethodFilter !== 'all') params.append('method', paymentMethodFilter)
+      
+      // Add pagination parameters
+      params.append('page', page.toString())
+      params.append('limit', recordsPerPage.toString())
+      
       const res = await fetch(`${API_BASE_URL}/payments?${params.toString()}`, { headers: getAuthHeaders() })
       if (!res.ok) throw new Error('Failed to fetch payment records')
       const data = await res.json()
+      
       const list = Array.isArray(data?.data?.records)
         ? data.data.records
         : Array.isArray(data?.records)
@@ -53,7 +65,18 @@ export default function PaymentRecords() {
           : Array.isArray(data)
             ? data
             : []
+      
       setRecords(list)
+      
+      // Update pagination info
+      if (data?.data?.pagination) {
+        setTotalPages(data.data.pagination.totalPages || 1)
+        setTotalRecords(data.data.pagination.totalRecords || list.length)
+      } else {
+        setTotalPages(1)
+        setTotalRecords(list.length)
+      }
+      
     } catch (e) {
       setError(e.message || 'Failed to load payment records')
       setRecords([])
@@ -68,7 +91,10 @@ export default function PaymentRecords() {
   }, [])
 
   useEffect(() => {
-    const t = setTimeout(() => fetchPaymentRecords(), 400)
+    const t = setTimeout(() => {
+      setCurrentPage(1) // Reset to first page when filters change
+      fetchPaymentRecords(1)
+    }, 400)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, statusFilter, paymentMethodFilter])
@@ -93,7 +119,25 @@ export default function PaymentRecords() {
   const getDisplayAmount = (r) => r.amount || r.totalAmount || 0
   const getDisplayMethod = (r) => r.method || r.paymentMethod || (r.payment && r.payment.method) || 'Unknown'
   const getDisplayDate = (r) => r.date || r.createdAt || ''
-  const getDisplayStatus = (r) => r.status || r.paymentStatus || 'unknown'
+  const getDisplayStatus = (r) => {
+    // If order status is returned but payment was made, show as "Paid (Returned)"
+    if (r.status === 'returned' && r.paymentStatus === 'paid') {
+      return 'paid_returned'
+    }
+    return r.status || r.paymentStatus || 'unknown'
+  }
+
+  // Pagination functions
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage)
+    fetchPaymentRecords(newPage)
+  }
+
+  const handleRecordsPerPageChange = (newLimit) => {
+    setRecordsPerPage(newLimit)
+    setCurrentPage(1)
+    fetchPaymentRecords(1)
+  }
 
   const filteredRecords = records.filter((r) => {
     const id = getDisplayId(r).toString().toLowerCase()
@@ -152,6 +196,18 @@ export default function PaymentRecords() {
             <span className="mr-1 font-bold">₹</span> Refunded
           </span>
         )
+      case 'returned':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+            <FiXCircle className="mr-1" /> Returned
+          </span>
+        )
+      case 'paid_returned':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <FiCheckCircle className="mr-1" /> Paid (Returned)
+          </span>
+        )
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -167,7 +223,14 @@ export default function PaymentRecords() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Customer Payment Records</h1>
-          <p className="text-gray-500">View and manage all payment transactions</p>
+          <p className="text-gray-500">
+            View and manage all payment transactions
+            {totalRecords > 0 && (
+              <span className="ml-2 text-green-600 font-medium">
+                ({totalRecords} total records)
+              </span>
+            )}
+          </p>
         </div>
         <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mt-4 md:mt-0">
           <FiDownload className="mr-2" /> Export
@@ -206,6 +269,8 @@ export default function PaymentRecords() {
               <option value="pending">Pending</option>
               <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
+              <option value="returned">Returned</option>
+              <option value="paid_returned">Paid (Returned)</option>
             </select>
           </div>
 
@@ -296,6 +361,107 @@ export default function PaymentRecords() {
           </table>
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {!loading && !error && totalPages > 1 && (
+        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+          <div className="flex-1 flex justify-between sm:hidden">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-gray-700">
+                Showing{' '}
+                <span className="font-medium">{(currentPage - 1) * recordsPerPage + 1}</span>
+                {' '}to{' '}
+                <span className="font-medium">
+                  {Math.min(currentPage * recordsPerPage, totalRecords)}
+                </span>
+                {' '}of{' '}
+                <span className="font-medium">{totalRecords}</span>
+                {' '}results
+              </p>
+              <select
+                value={recordsPerPage}
+                onChange={(e) => handleRecordsPerPageChange(parseInt(e.target.value))}
+                className="ml-2 border border-gray-300 rounded-md px-2 py-1 text-sm"
+              >
+                <option value={10}>10 per page</option>
+                <option value={20}>20 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
+                <option value={1000}>Show All</option>
+              </select>
+            </div>
+            <div>
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                
+                {/* Page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        currentPage === pageNum
+                          ? 'z-10 bg-green-50 border-green-500 text-green-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
