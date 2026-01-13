@@ -233,9 +233,7 @@ const SettingsPage = () => {
                       <div className="flex items-center gap-6">
                         <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center overflow-hidden">
                           {profileData.avatar ? (
-                                                         <img src={`${process.env.NODE_ENV === 'development'
-        ? 'http://localhost:3001'
-        : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app')}${profileData.avatar}`} alt="Avatar" className="w-full h-full object-cover" />
+                                                         <img src={`https://farm-ferry-backend-new.vercel.app${profileData.avatar}`} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
                             <User className="w-12 h-12 text-white" />
                           )}

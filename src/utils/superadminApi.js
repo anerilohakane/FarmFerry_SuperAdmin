@@ -1,8 +1,6 @@
 // superadminApi.js
 
-const API_BASE = (process.env.NODE_ENV === 'development'
-  ? 'http://localhost:3001/api/v1'
-  : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app/api/v1')) + '/superadmin';
+const API_BASE = 'https://farm-ferry-backend-new.vercel.app/api/v1' + '/superadmin';
 
 export async function getProfile() {
   const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
@@ -104,5 +102,34 @@ export async function getDeliveryAssociates(page = 1, limit = 10, search = '', s
     }
   });
   if (!res.ok) throw new Error('Failed to fetch delivery associates');
+  return res.json();
+}
+
+export async function getNotifications() {
+  const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
+  // API_BASE is .../api/v1/superadmin
+  const res = await fetch(`${API_BASE}/notifications`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to fetch notifications');
+  return res.json();
+}
+
+export async function markNotificationRead(id, markAll = false) {
+  const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
+  const res = await fetch(`${API_BASE}/notifications`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ id, markAll }),
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to mark notification read');
   return res.json();
 }

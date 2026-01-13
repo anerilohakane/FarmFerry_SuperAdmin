@@ -22,9 +22,7 @@ export default function DashboardPage() {
   const [recentPayments, setRecentPayments] = useState([])
   const [deliverySummary, setDeliverySummary] = useState({ processed: 0, pending: 0, rejected: 0 })
 
-  const API_BASE_URL = process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:3001/api/v1' 
-    : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app/api/v1');
+  const API_BASE = 'https://farm-ferry-backend-new.vercel.app/api/v1';
   const headers = () => {
     const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token')
     return {

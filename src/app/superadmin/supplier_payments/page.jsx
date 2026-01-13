@@ -24,9 +24,7 @@ import { FaGooglePay, FaRupeeSign, FaExchangeAlt } from "react-icons/fa";
 import { SiPaytm, SiRazorpay } from "react-icons/si";
 
 // API Configuration
-const API_BASE_URL = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:3001/api/v1'
-  : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app/api/v1');
+const API_BASE_URL = 'https://farm-ferry-backend-new.vercel.app/api/v1';
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

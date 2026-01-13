@@ -133,53 +133,38 @@ const AdminLayoutInner = ({ children }) => {
     },
   ];
 
-  // Sample payment-focused notifications (Replace with real backend data)
-  const initialNotifications = [
-    {
-      id: 101,
-      type: "success",
-      title: "Payment Successful",
-      message: "Order #56789 paid via UPI (₹1,250.00).",
-      time: "3 minutes ago",
-      unread: true,
-      icon: FiDollarSign,
-      color: "green",
-    },
-    {
-      id: 102,
-      type: "failure",
-      title: "Payment Failed",
-      message: "Payment for Order #56790 declined (₹899.00).",
-      time: "15 minutes ago",
-      unread: true,
-      icon: FiAlertCircle,
-      color: "red",
-    },
-    {
-      id: 103,
-      type: "refund",
-      title: "Refund Processed",
-      message: "Refund issued for Order #56788 (₹1,499.00).",
-      time: "1 hour ago",
-      unread: false,
-      icon: FiRefreshCw,
-      color: "blue",
-    },
-    {
-      id: 104,
-      type: "supplier",
-      title: "Supplier Payout",
-      message: "Paid ₹12,850.00 to Fresh Farms Co.",
-      time: "2 hours ago",
-      unread: false,
-      icon: FiTruck,
-      color: "indigo",
-    },
-  ];
+  // Import API functions dynamically or assume they are available if imported at top
+  const { getNotifications, markNotificationRead } = require('../../utils/superadminApi');
 
-  // Initialize notifications on mount
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+        const res = await getNotifications();
+        if (res.success && Array.isArray(res.data)) {
+            // Mapped to UI format if needed, but assuming API returns matching structure or we map it
+            // API returns: { title, message, type, isRead, createdAt ... }
+            const mapped = res.data.map(n => ({
+                id: n._id,
+                title: n.title,
+                message: n.message,
+                time: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                unread: !n.isRead,
+                type: n.type,
+                color: n.type === 'payout_request' ? 'indigo' : n.type === 'order_status_update' ? 'blue' : 'gray',
+                icon: n.type === 'payout_request' ? FiCreditCard : n.type === 'order_status_update' ? FiRefreshCw : FiBell
+            }));
+            setNotifications(mapped);
+        }
+    } catch (error) {
+        console.error("Failed to fetch notifications", error);
+    }
+  };
+
   useEffect(() => {
-    setNotifications(initialNotifications);
+    fetchNotifications();
+    // Poll every 60 seconds
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   // Responsive sidebar toggle based on window size
@@ -213,17 +198,27 @@ const AdminLayoutInner = ({ children }) => {
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   // Mark notification as read handler
-  const markAsRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === id ? { ...notif, unread: false } : notif
-      )
-    );
+  const markAsRead = async (id) => {
+    try {
+        await markNotificationRead(id);
+        setNotifications((prev) =>
+          prev.map((notif) =>
+            notif.id === id ? { ...notif, unread: false } : notif
+          )
+        );
+    } catch (error) {
+        console.error("Failed to mark read", error);
+    }
   };
 
   // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((notif) => ({ ...notif, unread: false })));
+  const markAllAsRead = async () => {
+    try {
+        await markNotificationRead(null, true); // true for markAll
+        setNotifications((prev) => prev.map((notif) => ({ ...notif, unread: false })));
+    } catch (error) {
+        console.error("Failed to mark all read", error);
+    }
   };
 
   // Set sidebar active item and navigate
@@ -608,7 +603,7 @@ const AdminLayoutInner = ({ children }) => {
                 >
                   {profile.avatar ? (
                     <img
-                      src={`${process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app')}${profile.avatar}`}
+                      src={`https://farm-ferry-backend-new.vercel.app${profile.avatar || "/default-avatar.png"}`}
                       alt="Profile"
                       className="w-8 h-8 rounded-full ring-2 ring-green-500 ring-offset-2 object-cover"
                     />
@@ -638,7 +633,7 @@ const AdminLayoutInner = ({ children }) => {
                       <div className="flex items-center space-x-3">
                         {profile.avatar ? (
                           <img
-                            src={`${process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app')}${profile.avatar}`}
+                            src={`https://farm-ferry-backend-new.vercel.app${profile.avatar || "/default-avatar.png"}`}
                             alt="Profile"
                             className="w-10 h-10 rounded-full object-cover"
                           />
