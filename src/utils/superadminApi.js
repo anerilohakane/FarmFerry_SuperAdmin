@@ -5,7 +5,12 @@ const API_BASE = (process.env.NODE_ENV === 'development'
   : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app/api/v1')) + '/superadmin';
 
 export async function getProfile() {
+  const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
   const res = await fetch(`${API_BASE}/profile`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
     credentials: 'include',
   });
   if (!res.ok) throw new Error('Failed to fetch profile');
@@ -13,9 +18,13 @@ export async function getProfile() {
 }
 
 export async function updateProfile(data) {
+  const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
   const res = await fetch(`${API_BASE}/profile`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
     credentials: 'include',
     body: JSON.stringify(data),
   });
@@ -24,9 +33,13 @@ export async function updateProfile(data) {
 }
 
 export async function changePassword({ currentPassword, newPassword, confirmPassword }) {
+  const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
   const res = await fetch(`${API_BASE}/change-password`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
     credentials: 'include',
     body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
   });
@@ -35,10 +48,14 @@ export async function changePassword({ currentPassword, newPassword, confirmPass
 }
 
 export async function uploadAvatar(file) {
+  const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token');
   const formData = new FormData();
   formData.append('avatar', file);
   const res = await fetch(`${API_BASE}/avatar`, {
     method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
     credentials: 'include',
     body: formData,
   });
