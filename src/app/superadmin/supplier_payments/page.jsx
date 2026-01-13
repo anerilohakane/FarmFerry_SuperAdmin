@@ -24,7 +24,9 @@ import { FaGooglePay, FaRupeeSign, FaExchangeAlt } from "react-icons/fa";
 import { SiPaytm, SiRazorpay } from "react-icons/si";
 
 // API Configuration
-const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1`;
+const API_BASE_URL = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:3001/api/v1'
+  : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app/api/v1');
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {
@@ -55,6 +57,24 @@ export default function SupplierPayments() {
   const [suppliers, setSuppliers] = useState([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [suppliersError, setSuppliersError] = useState(null);
+
+  // Supplier Payments Integration
+  const fetchPayments = async () => {
+     try {
+         setIsLoading(true);
+         const token = localStorage.getItem('superadmin_token');
+         const res = await fetch(`${API_BASE_URL}/supplier-payments`, {
+             headers: { 'Authorization': `Bearer ${token}` }
+         });
+         if (!res.ok) throw new Error('Failed to fetch payments');
+         const data = await res.json();
+         setSupplierPayments(data.data?.records || []);
+     } catch (e) {
+         console.error(e);
+     } finally {
+         setIsLoading(false);
+     }
+  }
 
   // Sample supplier payments data with dynamic supplier integration
   const [supplierPayments, setSupplierPayments] = useState([]);
@@ -158,6 +178,7 @@ export default function SupplierPayments() {
   // Fetch suppliers on component mount
   useEffect(() => {
     fetchSuppliers();
+    fetchPayments();
   }, []);
 
   // Filtering supplier payments
@@ -249,11 +270,8 @@ export default function SupplierPayments() {
 
   // Loading simulation and refresh data
   const refreshData = () => {
-    setIsLoading(true);
     fetchSuppliers();
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    fetchPayments();
   };
 
   // Open payment details modal
@@ -286,13 +304,38 @@ export default function SupplierPayments() {
     setPayProcessing(false);
   };
 
-  // Simulate pay processing
-  const processPayment = () => {
+  // Process payment via API
+  const processPayment = async () => {
+    if (!selectedPayment) return;
     setPayProcessing(true);
-    setTimeout(() => {
-      setPayProcessing(false);
-      setPaidPaymentId(selectedPayment.id);
-    }, 1500);
+    try {
+        const token = localStorage.getItem('superadmin_token');
+        const res = await fetch(`${API_BASE_URL}/supplier-payments/pay`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                supplierId: selectedPayment.supplier.id,
+                payoutId: selectedPayment.id,
+                status: 'processed', // or completed
+                method: payMethod,
+                notes: `Paid via ${payMethod}`
+            })
+        });
+        
+        if (!res.ok) throw new Error('Payment failed');
+        
+        setPaidPaymentId(selectedPayment.id);
+        // Refresh list after brief delay
+        setTimeout(() => fetchPayments(), 1500);
+        
+    } catch (e) {
+        alert('Payment failed: ' + e.message);
+    } finally {
+        setPayProcessing(false);
+    }
   };
 
   // Show loading state while suppliers are being fetched

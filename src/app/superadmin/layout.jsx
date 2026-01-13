@@ -84,6 +84,24 @@ const AdminLayoutInner = ({ children }) => {
       route: "/superadmin",
     },
     {
+      icon: FiUser,
+      label: "Customers",
+      description: "Manage registered customers",
+      route: "/superadmin/customers",
+    },
+    {
+      icon: FiTruck,
+      label: "Suppliers",
+      description: "Manage product suppliers",
+      route: "/superadmin/suppliers",
+    },
+    {
+      icon: MdDeliveryDining,
+      label: "Delivery Associates",
+      description: "Manage delivery fleet",
+      route: "/superadmin/delivery_associates",
+    },
+    {
       icon: FiDatabase,
       label: "Customer Payment Records",
       description: "View all payment transactions",
@@ -590,7 +608,7 @@ const AdminLayoutInner = ({ children }) => {
                 >
                   {profile.avatar ? (
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}${profile.avatar}`}
+                      src={`${process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app')}${profile.avatar}`}
                       alt="Profile"
                       className="w-8 h-8 rounded-full ring-2 ring-green-500 ring-offset-2 object-cover"
                     />
@@ -620,7 +638,7 @@ const AdminLayoutInner = ({ children }) => {
                       <div className="flex items-center space-x-3">
                         {profile.avatar ? (
                           <img
-                            src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}${profile.avatar}`}
+                            src={`${process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app')}${profile.avatar}`}
                             alt="Profile"
                             className="w-10 h-10 rounded-full object-cover"
                           />

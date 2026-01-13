@@ -9,11 +9,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Hardcoded for now to ensure production URL is used
+  const API_URL = 'https://farm-ferry-backend-new.vercel.app';
+
   // Real login function for superadmin
   const login = async (email, password) => {
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1/superadmin/login`, {
+      const res = await fetch(`${API_URL}/api/v1/superadmin/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -23,9 +26,9 @@ export function AuthProvider({ children }) {
         throw new Error(data.message || 'Login failed');
       }
       
-      // Store user info in localStorage and state
-      const userData = data.data?.superadmin || null;
-      const accessToken = data.data?.accessToken || null;
+      // Response structure: { success: true, token, data: { check user data ... } }
+      const userData = data.data; // Backend sends user data in 'data' field
+      const accessToken = data.token; // Backend sends token at root level
       
       setUser(userData);
       setToken(accessToken);
@@ -33,6 +36,37 @@ export function AuthProvider({ children }) {
       
       // Store in localStorage
       if (userData) localStorage.setItem('superadmin_user', JSON.stringify(userData));
+      if (accessToken) localStorage.setItem('superadmin_token', accessToken);
+      
+      return data;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (userData) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/superadmin/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+      
+      // Automatically login after register
+      const newUserData = data.data;
+      const accessToken = data.token;
+      
+      setUser(newUserData);
+      setToken(accessToken);
+      setIsAuthenticated(true);
+      
+      if (newUserData) localStorage.setItem('superadmin_user', JSON.stringify(newUserData));
       if (accessToken) localStorage.setItem('superadmin_token', accessToken);
       
       return data;
@@ -52,7 +86,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('adminSidebarActive');
     
     // Optionally call backend logout
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1/superadmin/logout`, {
+    fetch(`${API_URL}/api/v1/superadmin/logout`, {
       method: 'POST',
       credentials: 'include'
     }).catch(err => {
@@ -61,7 +95,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, loading, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

@@ -12,17 +12,19 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 export default function DashboardPage() {
   const [stats, setStats] = useState([
-    { icon: FiTrendingUp, title: "Today's Revenue", value: "₹0", change: "", trend: 'up', description: "Total paid (customers)" },
-    { icon: FiShoppingCart, title: "Total Payments", value: "0", change: "", trend: 'up', description: "Customer payments" },
-    { icon: FiUsers, title: "Payouts Processed", value: "0", change: "", trend: 'up', description: "Delivery payouts" },
-    { icon: FiPackage, title: "Products", value: "-", change: "", trend: 'up', description: "Active products" }
+    { icon: FiTrendingUp, title: "Today's Revenue", value: "₹0", change: "", trend: 'up', description: "Total earnings today" },
+    { icon: FiShoppingCart, title: "Total Revenue", value: "₹0", change: "", trend: 'up', description: "Lifetime earnings" },
+    { icon: FiUsers, title: "Total Orders", value: "0", change: "", trend: 'up', description: "All time orders" },
+    { icon: FiPackage, title: "Active Products", value: "-", change: "", trend: 'up', description: "Products visible to users" }
   ])
   const [revenueData, setRevenueData] = useState([])
   const [alerts, setAlerts] = useState([])
   const [recentPayments, setRecentPayments] = useState([])
   const [deliverySummary, setDeliverySummary] = useState({ processed: 0, pending: 0, rejected: 0 })
 
-  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9000'}/api/v1`
+  const API_BASE_URL = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:3001/api/v1' 
+    : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://farm-ferry-backend-new.vercel.app/api/v1');
   const headers = () => {
     const token = localStorage.getItem('superadmin_token') || sessionStorage.getItem('superadmin_token')
     return {
@@ -34,48 +36,65 @@ export default function DashboardPage() {
   useEffect(() => {
     const run = async () => {
       try {
-        const [custStatsRes, daStatsRes, custPaymentsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/payments/statistics`, { headers: headers() }).catch(() => null),
-          fetch(`${API_BASE_URL}/delivery-payments/statistics`, { headers: headers() }).catch(() => null),
-          fetch(`${API_BASE_URL}/payments?limit=10&sortBy=createdAt&sortOrder=desc`, { headers: headers() }).catch(() => null)
-        ])
+        const token = localStorage.getItem('superadmin_token');
+        if (!token) {
+           // Handle no token, maybe optional here if protected by layout/middleware
+        }
 
-        const custStats = custStatsRes && custStatsRes.ok ? await custStatsRes.json() : null
-        const daStats = daStatsRes && daStatsRes.ok ? await daStatsRes.json() : null
-        const custPayments = custPaymentsRes && custPaymentsRes.ok ? await custPaymentsRes.json() : null
+        const res = await fetch(`${API_BASE_URL}/superadmin/dashboard/stats`, { 
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            } 
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        
+        const json = await res.json();
+        const data = json.data;
 
-        const paidTotal = custStats?.data?.paidTotalAmount || custStats?.data?.paid?.totalAmount || 0
-        const totalPayments = custStats?.data?.totalRecords || custStats?.data?.count || 0
-        const processedCount = daStats?.data?.paymentStatus?.processed?.count || 0
-
+        // Map Stats Cards
         setStats(prev => [
-          { ...prev[0], value: `₹${Number(paidTotal).toLocaleString()}` },
-          { ...prev[1], value: `${totalPayments}` },
-          { ...prev[2], value: `${processedCount}` },
-          prev[3]
-        ])
+          { ...prev[0], value: `₹${Number(data.revenue?.today || 0).toLocaleString()}` },
+          { ...prev[1], value: `₹${Number(data.revenue?.total || 0).toLocaleString()}` }, // Changed to Total Revenue vs Total Payments count
+          { ...prev[2], value: `${data.orders?.total || 0}` }, // Changed to Total Orders vs Payouts count
+          { ...prev[3], value: `${data.products?.active || 0}` }
+        ]);
 
-        const chart = custStats?.data?.lastSixDays || []
-        setRevenueData(chart.map(d => ({ name: d.date || d.label || '', revenue: d.amount || d.total || 0 })))
+        // Map Chart Data
+        const chart = data.revenue?.lastSixDays || [];
+        setRevenueData(chart.map(d => ({ name: d.name, revenue: d.revenue })));
 
-        const failedPayments = custStats?.data?.failed?.count || 0
-        const rejectedPayouts = daStats?.data?.paymentStatus?.rejected?.count || 0
-        const pendingPayouts = daStats?.data?.paymentStatus?.pending?.count || 0
-        const newAlerts = []
-        if (failedPayments > 0) newAlerts.push({ type: 'payment', title: `${failedPayments} Failed Transactions`, description: 'Require manual review', priority: 'high' })
-        if (pendingPayouts > 0) newAlerts.push({ type: 'payout', title: `${pendingPayouts} Pending Payouts`, description: 'Delivery associates waiting for approval', priority: 'medium' })
-        if (rejectedPayouts > 0) newAlerts.push({ type: 'payout', title: `${rejectedPayouts} Rejected Payouts`, description: 'Review and retry if needed', priority: 'low' })
-        setAlerts(newAlerts)
+        // Map Alerts (Logic based on counts)
+        const pendingSuppliers = data.suppliers?.pending || 0;
+        const pendingOrders = data.orders?.pending || 0;
+        
+        const newAlerts = [];
+        if (pendingOrders > 0) newAlerts.push({ type: 'order', title: `${pendingOrders} Pending Orders`, description: 'Require processing', priority: 'high' });
+        if (pendingSuppliers > 0) newAlerts.push({ type: 'supplier', title: `${pendingSuppliers} Pending Supplier Requests`, description: 'Awaiting approval', priority: 'medium' });
+        setAlerts(newAlerts);
 
-        const records = Array.isArray(custPayments?.data?.records) ? custPayments.data.records : []
-        setRecentPayments(records.slice(0, 4))
+        // Map Recent Payments (using Recent Orders as proxy)
+        const records = Array.isArray(data.recentOrders) ? data.recentOrders : [];
+        setRecentPayments(records.map(order => ({
+            id: order._id.substring(0, 8).toUpperCase(),
+            customerName: order.customer?.name || order.customer?.firstName || 'Unknown',
+            totalAmount: order.totalAmount,
+            paymentMethod: order.paymentMethod,
+            paymentStatus: order.paymentStatus || order.status,
+            createdAt: new Date(order.createdAt).toLocaleDateString()
+        })));
 
+        // Delivery Summary (Mock or 0 for now until dedicated API exists)
         setDeliverySummary({
-          processed: daStats?.data?.paymentStatus?.processed?.count || 0,
-          pending: daStats?.data?.paymentStatus?.pending?.count || 0,
-          rejected: daStats?.data?.paymentStatus?.rejected?.count || 0
-        })
-      } catch {}
+          processed: 0,
+          pending: 0,
+          rejected: 0
+        });
+
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      }
     }
     run()
   }, [])

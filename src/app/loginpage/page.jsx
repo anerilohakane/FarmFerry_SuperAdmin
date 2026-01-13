@@ -7,21 +7,31 @@ import { useRouter } from 'next/navigation';
 import FarmFerryLogo from "@/../public/images/Farm-Ferry-logo.jpeg";
 
 const LoginPage = () => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    phone: '',
+    company: '',
+    location: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const { login: authLogin, isAuthenticated, loading: authLoading } = useAuth();
+  const { login: authLogin, register: authRegister } = useAuth();
   const router = useRouter();
 
   const validateForm = () => {
     const newErrors = {};
     
+    if (isRegistering && !formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -38,21 +48,31 @@ const LoginPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) return;
     
     setIsLoading(true);
-    setLoginError('');
+    setAuthError('');
+    setSuccessMessage('');
 
     try {
-      await authLogin(formData.email, formData.password);
+      if (isRegistering) {
+        await authRegister(formData);
+        setSuccessMessage('Registration successful! Redirecting...');
+      } else {
+        await authLogin(formData.email, formData.password);
+        setSuccessMessage('Login successful! Redirecting...');
+      }
+      
       localStorage.removeItem('adminSidebarActive');
       // Redirect to admin dashboard
-      router.replace('/superadmin');
+      setTimeout(() => {
+        router.replace('/superadmin');
+      }, 1000);
     } catch (err) {
-      setLoginError(err.message || 'Login failed');
+      setAuthError(err.message || (isRegistering ? 'Registration failed' : 'Login failed'));
     } finally {
       setIsLoading(false);
     }
@@ -72,6 +92,13 @@ const LoginPage = () => {
         [name]: ''
       }));
     }
+  };
+
+  const toggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setErrors({});
+    setAuthError('');
+    setSuccessMessage('');
   };
 
   return (
@@ -138,23 +165,13 @@ const LoginPage = () => {
                 <p className="text-green-100 text-sm">Same-day local delivery</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4 bg-white/10 backdrop-blur-sm rounded-xl p-4 transform hover:scale-105 transition-all duration-300 hover:bg-white/15 border border-white/20">
-              <div className="w-12 h-12 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full flex items-center justify-center shadow-lg">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-base font-semibold">Community</h3>
-                <p className="text-green-100 text-sm">Supporting local farmers</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
       
-      {/* Right Side - Enhanced Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+      {/* Right Side - Enhanced Auth Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="w-full max-w-md my-auto">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-6">
             <div className="relative inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mb-3 shadow-xl">
@@ -166,17 +183,68 @@ const LoginPage = () => {
           
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-green-100/50">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome Back</h2>
-              <p className="text-gray-600 text-sm">Sign in to your admin account</p>
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">{isRegistering ? 'Create Account' : 'Welcome Back'}</h2>
+              <p className="text-gray-600 text-sm">{isRegistering ? 'Join as a Super Admin' : 'Sign in to your admin account'}</p>
             </div>
             
-            {loginError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-center text-sm">
-                {loginError}
+            {authError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-center text-sm animate-shake">
+                {authError}
               </div>
             )}
 
-            <div className="space-y-4">
+            {successMessage && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-4 text-center text-sm animate-pulse">
+                {successMessage}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {isRegistering && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-gray-700 text-sm font-medium">Full Name</label>
+                    <div className="relative">
+                      <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-900" />
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className={`w-full pl-10 pr-4 py-3 border ${errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white/70'} rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 hover:border-green-300 backdrop-blur-sm`}
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                     <div className="space-y-2">
+                      <label className="text-gray-700 text-sm font-medium">Phone</label>
+                       <input // Simple input for now
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 bg-white/70 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 hover:border-green-300"
+                        placeholder="+91..."
+                      />
+                    </div>
+                     <div className="space-y-2">
+                      <label className="text-gray-700 text-sm font-medium">Company</label>
+                       <input
+                        type="text"
+                        name="company"
+                        value={formData.company}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 bg-white/70 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 hover:border-green-300"
+                        placeholder="Farm Corp"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="space-y-2">
                 <label className="text-gray-700 text-sm font-medium">Email Address</label>
                 <div className="relative">
@@ -190,9 +258,7 @@ const LoginPage = () => {
                     placeholder="Enter your email"
                   />
                 </div>
-                {errors.email && (
-                  <p className="text-red-500 text-sm">{errors.email}</p>
-                )}
+                {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
               </div>
               
               <div className="space-y-2">
@@ -215,45 +281,49 @@ const LoginPage = () => {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                {errors.password && (
-                  <p className="text-red-500 text-sm">{errors.password}</p>
-                )}
+                {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
               </div>
               
-              <div className="flex items-center justify-between">
-                <label className="flex items-center text-sm text-gray-600 hover:text-gray-800 transition-colors cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="mr-2 rounded border-gray-300 text-green-600 focus:ring-green-500" 
-                  />
-                  Remember me
-                </label>
-                <button type="button" className="text-sm text-green-600 hover:text-green-700 transition-colors">
-                  Forgot password?
-                </button>
-              </div>
+              {!isRegistering && (
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center text-sm text-gray-600 hover:text-gray-800 transition-colors cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="mr-2 rounded border-gray-300 text-green-600 focus:ring-green-500" 
+                    />
+                    Remember me
+                  </label>
+                  <button type="button" className="text-sm text-green-600 hover:text-green-700 transition-colors">
+                    Forgot password?
+                  </button>
+                </div>
+              )}
               
               <button
-                onClick={handleLogin}
+                type="submit"
                 disabled={isLoading}
                 className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Signing in...
+                    {isRegistering ? 'Creating Account...' : 'Signing in...'}
                   </div>
                 ) : (
-                  'Sign In'
+                  isRegistering ? 'Create Account' : 'Sign In'
                 )}
               </button>
-            </div>
+            </form>
             
             <div className="mt-6 text-center">
               <p className="text-gray-500 text-sm">
-                Don't have an account? 
-                <button type="button" className="text-green-600 hover:text-green-700 ml-1 transition-colors font-medium">
-                  Sign up
+                {isRegistering ? 'Already have an account?' : "Don't have an account?"}
+                <button 
+                  type="button" 
+                  onClick={toggleMode}
+                  className="text-green-600 hover:text-green-700 ml-1 transition-colors font-medium"
+                >
+                  {isRegistering ? 'Sign in' : 'Sign up'}
                 </button>
               </p>
             </div>
